@@ -332,7 +332,8 @@ class ExportPopup extends Container {
             const activeRows = {
                 ply: [compressRow, splatsRow, bandsRow, filenameRow],
                 splat: [splatsRow, filenameRow],
-                viewer: [viewerTypeRow, startRow, animationRow, colorRow, fovRow, splatsRow, bandsRow, filenameRow]
+                viewer: [viewerTypeRow, startRow, animationRow, colorRow, fovRow, splatsRow, bandsRow, filenameRow],
+                sequence: [bandsRow, filenameRow]
             }[exportType];
 
             allRows.forEach((r) => {
@@ -366,6 +367,9 @@ class ExportPopup extends Container {
                     break;
                 case 'viewer':
                     updateExtension(viewerTypeSelect.value === 'html' ? '.html' : '.zip');
+                    break;
+                case 'sequence':
+                    // For sequence, we let the user choose a directory, so no extension needed here.
                     break;
             }
 
@@ -519,6 +523,9 @@ class ExportPopup extends Container {
                             break;
                         case 'viewer':
                             resolve(assembleViewerOptions());
+                            break;
+                        case 'sequence':
+                            resolve(assemblePlyOptions());
                             break;
                     }
                 };

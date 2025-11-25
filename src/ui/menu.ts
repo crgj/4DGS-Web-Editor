@@ -20,13 +20,16 @@ import selectNone from './svg/select-none.svg';
 import selectSeparate from './svg/select-separate.svg';
 import selectUnlock from './svg/select-unlock.svg';
 import logoSvg from './svg/supersplat-logo.svg';
+  
+
+
 
 const createSvg = (svgString: string) => {
     const decodedStr = decodeURIComponent(svgString.substring('data:image/svg+xml,'.length));
     return new Element({
         dom: new DOMParser().parseFromString(decodedStr, 'image/svg+xml').documentElement
     });
-};
+}; 
 
 class Menu extends Container {
     constructor(events: Events, args = {}) {
@@ -59,20 +62,23 @@ class Menu extends Container {
         });
 
         const scene = new Label({
-            text: localize('file'),
+            text: localize('file')  ,
             class: 'menu-option'
         });
 
         const render = new Label({
             text: localize('render'),
             class: 'menu-option'
-        });
+        }); 
+
+ 
+
 
         const selection = new Label({
             text: localize('select'),
             class: 'menu-option'
         });
-
+  
         const help = new Label({
             text: localize('help'),
             class: 'menu-option'
@@ -103,6 +109,7 @@ class Menu extends Container {
         buttonsContainer.append(scene);
         buttonsContainer.append(selection);
         buttonsContainer.append(render);
+ 
         buttonsContainer.append(help);
         buttonsContainer.append(collapse);
         buttonsContainer.append(arrow);
@@ -127,7 +134,17 @@ class Menu extends Container {
             icon: createSvg(sceneExport),
             isEnabled: () => !events.invoke('scene.empty'),
             onSelect: () => events.invoke('scene.export', 'viewer')
-        }]);
+        },
+        //WDD: Add option to export sequence
+        {
+            // separator
+        }, {
+            text: localize('file.export.sequence'),
+            icon: createSvg(sceneExport),
+            isEnabled: () => !events.invoke('scene.empty'),
+            onSelect: () => events.invoke('scene.export', 'sequence')
+        }, 
+    ]);
 
         const fileMenuPanel = new MenuPanel([{
             text: localize('file.new'),
@@ -231,6 +248,10 @@ class Menu extends Container {
             icon: createSvg(sceneExport),
             onSelect: async () => await events.invoke('show.videoSettingsDialog')
         }]);
+ 
+
+
+
 
         const helpMenuPanel = new MenuPanel([{
             text: localize('help.shortcuts'),
@@ -277,6 +298,7 @@ class Menu extends Container {
         this.append(exportMenuPanel);
         this.append(selectionMenuPanel);
         this.append(renderMenuPanel);
+ 
         this.append(helpMenuPanel);
 
         const options: { dom: HTMLElement, menuPanel: MenuPanel }[] = [{

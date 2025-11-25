@@ -1,4 +1,4 @@
-import { path, Quat, Vec3 } from 'playcanvas';
+import { fresnelNames, path, Quat, Vec3 } from 'playcanvas';
 
 import { CreateDropHandler } from './drop-handler';
 import { ElementType } from './element';
@@ -13,7 +13,7 @@ import { localize } from './ui/localization';
 // ts compiler and vscode find this type, but eslint does not
 type FilePickerAcceptType = unknown;
 
-type ExportType = 'ply' | 'splat' | 'viewer';
+type ExportType = 'ply' | 'splat' | 'viewer' | 'sequence';
 
 type FileType = 'ply' | 'compressedPly' | 'splat' | 'htmlViewer' | 'packageViewer';
 
@@ -250,6 +250,8 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
     // import a single file, .ply, .splat or meta.json
     const importFile = async (file: ImportFile, animationFrame: boolean) => {
         try {
+ 
+            //读取ply文件
             const model = await scene.assetLoader.load({
                 contents: file.contents,
                 filename: file.filename,
@@ -335,8 +337,10 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
         const filenames = files.map(f => f.filename.toLowerCase());
 
         const result = [];
+ 
 
         if (isPlySequence(filenames)) {
+
             // handle ply sequence
             events.fire('plysequence.setFrames', files.map(f => f.contents));
             events.fire('timeline.frame', 0);
@@ -375,6 +379,8 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
                 }
             }
         }
+        
+         
 
         return result;
     };
@@ -430,6 +436,10 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
 
     events.function('scene.splats', () => {
         return getSplats();
+    });
+
+    events.function('scene.assetLoader', () => {
+        return scene.assetLoader;
     });
 
     events.function('scene.empty', () => {
@@ -502,19 +512,37 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
         }
     });
 
-    events.function('scene.export', async (exportType: 'ply' | 'splat' | 'viewer') => {
+    events.function('scene.export', async (exportType: 'ply' | 'splat' | 'viewer' | 'sequence') => {
+       
+        
         const splats = getSplats();
-
         const hasFilePicker = !!window.showSaveFilePicker;
+
+        // WDD: Special handling for sequence export to bypass options popup
+        if (exportType === 'sequence') {
+            try {
+                const dirHandle = await window.showDirectoryPicker({
+                    id: 'SuperSplatSequenceExport',
+                    mode: 'readwrite'
+                });
+                if (dirHandle) {
+                    // No options are needed, just pass the directory handle
+                    await events.invoke('plysequence.export', { dirHandle });
+                }
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Could not get directory handle:', error);
+                }
+            }
+            return;
+        }
 
         // show viewer export options
         const options = await events.invoke('show.exportPopup', exportType, splats.map(s => s.name), !hasFilePicker) as SceneExportOptions;
-
         // return if user cancelled
         if (!options) {
             return;
         }
-
         const fileType =
             (exportType === 'viewer') ? (options.viewerExportSettings.type === 'zip' ? 'packageViewer' : 'htmlViewer') :
                 (exportType === 'ply') ? (options.compressedPly ? 'compressedPly' : 'ply') : 'splat';
@@ -526,6 +554,7 @@ const initFileHandler = (scene: Scene, events: Events, dropTarget: HTMLElement) 
                     types: [filePickerTypes[fileType]],
                     suggestedName: options.filename
                 });
+                
                 await events.invoke('scene.write', fileType, options, await fileHandle.createWritable());
             } catch (error) {
                 if (error.name !== 'AbortError') {

@@ -38,8 +38,11 @@ class AssetLoader {
             this.events.fire('startSpinner');
         }
 
+
+
         try {
             const filename = (assetSource.filename || assetSource.url).toLowerCase();
+ 
 
             let asset;
             let orientation = defaultOrientation;
@@ -51,6 +54,8 @@ class AssetLoader {
                 orientation = lccOrientation;
             } else {
                 asset = await loadGsplat(this.app.assets, assetSource);
+
+                 
             }
 
             return new Splat(asset, orientation);

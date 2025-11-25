@@ -19,7 +19,11 @@ const loadGsplat = (assets: AssetRegistry, assetSource: AssetSource) => {
         // decompress data on load
         decompress: true,
         // disable morton re-ordering when loading animation frames
-        reorder: !(assetSource.animationFrame ?? false)
+        //reorder: !(assetSource.animationFrame ?? false)
+        
+        //WDD : Always disable        
+        reorder : false
+
     };
 
     const options = {

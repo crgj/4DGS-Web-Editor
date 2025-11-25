@@ -15,6 +15,8 @@ const createSvg = (svgString: string) => {
     return new DOMParser().parseFromString(decodedStr, 'image/svg+xml').documentElement;
 };
 
+
+
 class RightToolbar extends Container {
     constructor(events: Events, tooltips: Tooltips, args = {}) {
         args = {

@@ -277,6 +277,9 @@ const localizeInit = () => {
             },
             en: {
                 translation: {
+                    //WDD
+                    'sequence': 'Sequence',
+                    'sequence.action': 'Action...',
                     // File menu
                     'file': 'File',
                     'file.new': 'New',
@@ -289,6 +292,7 @@ const localizeInit = () => {
                     'file.export.ply': 'PLY (.ply)',
                     'file.export.splat': 'Splat file (.splat)',
                     'file.export.viewer': 'Viewer App...',
+                    'file.export.sequence': 'Sequence Export...',
 
                     // Render menu
                     'render': 'Render',

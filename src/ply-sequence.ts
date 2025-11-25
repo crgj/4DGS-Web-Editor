@@ -1,6 +1,16 @@
 import { Events } from './events';
 import { Splat } from './splat';
+import { serializePly } from './splat-serialize';
+import { FileStreamWriter } from './serialize/writer';
 
+import { State } from './splat-state';
+
+// WDD: Define the structure for export options
+interface PlySequenceExportOptions {
+    dirHandle: FileSystemDirectoryHandle;
+    // serializeSettings could be added here in the future if needed
+    // serializeSettings: SerializeSettings;
+}
 const registerPlySequenceEvents = (events: Events) => {
     let sequenceFiles: File[] = [];
     let sequenceSplat: Splat = null;
@@ -71,6 +81,11 @@ const registerPlySequenceEvents = (events: Events) => {
             contents: file
         }], true) as Splat[];
 
+
+        console.log('Loaded frame', newSplat);
+
+
+
         // wait for first frame render
         await firstRender(newSplat[0]);
 
@@ -96,6 +111,72 @@ const registerPlySequenceEvents = (events: Events) => {
 
     events.on('timeline.frame', async (frame: number) => {
         await setFrame(frame);
+    });
+
+    // WDD: Add handler for the plysequence.export event
+    events.function('plysequence.export', async (options: PlySequenceExportOptions) => {
+        if (!sequenceFiles || sequenceFiles.length === 0) {
+            console.warn('No sequence frames to export.');
+            return;
+        }
+
+        events.fire('startSpinner');
+
+        try {
+            for (let i = 0; i < sequenceFiles.length; i++) {
+                const file = sequenceFiles[i];
+                // WDD: Use the scene's assetLoader to load the splat data into a temporary object.
+                // This correctly loads the data without adding the splat to the main scene.
+                const splat = await events.invoke('scene.assetLoader').load({
+                    filename: file.name,
+                    contents: file
+                });
+
+                // WDD: 保存序列文件的时候 对照当前场景中splat的高斯点状态
+                // 如果高斯点的状态是被删除的 则不写入文件
+
+                
+                // 1. 从当前场景的 splat (sequenceSplat) 获取完整的状态数组
+                const oldState = sequenceSplat.splatData.getProp('state') as Uint8Array;
+                const newState = splat.splatData.getProp('state') as Uint8Array;
+               
+
+                console.log('state 000',  splat.splatData);
+
+                // 2. 将状态数组应用到新加载的 splat 数据上
+                if (oldState) {
+                    //  将旧状态复制到新 splat
+                    newState.set(oldState);
+
+                     
+                }
+
+
+                console.log('state 111',  splat.splatData);
+
+                // 3. 创建序列化设置，确保在保存时物理移除已删除的点
+                const serializeSettings = {
+                    removeInvalid: true
+                };
+
+                // Get a handle to the output file in the selected directory
+                const fileHandle = await options.dirHandle.getFileHandle(file.name, { create: true });
+                const stream = await fileHandle.createWritable();
+                const writer = new FileStreamWriter(stream);
+
+                try {
+                    // Serialize the splat data to the file stream.
+                    // The settings will ensure deleted splats are not written.
+                    await serializePly([splat], serializeSettings, writer);
+                } finally {
+                    await writer.close();
+                }
+            }
+        } catch (error) {
+            console.error('Error during sequence export:', error);
+        } finally {
+            events.fire('stopSpinner');
+        }
     });
 };
 

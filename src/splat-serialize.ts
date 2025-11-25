@@ -473,6 +473,11 @@ const serializePly = async (splats: Splat[], serializeSettings: SerializeSetting
     // create filter and count total gaussians
     const filter = new GaussianFilter(serializeSettings);
     const totalGaussians = countGaussians(splats, filter);
+
+
+    console.log(333)
+    console.log(totalGaussians)
+
     if (totalGaussians === 0) {
         return;
     }
@@ -1008,6 +1013,8 @@ const serializeSplat = async (splats: Splat[], options: SerializeSettings, write
     // create filter and count total gaussians
     const filter = new GaussianFilter(options);
     const totalGaussians = countGaussians(splats, filter);
+
+     
     if (totalGaussians === 0) {
         return;
     }
