@@ -5,6 +5,10 @@ import { localize } from './ui/localization';
 import { FileStreamWriter } from './serialize/writer';
 
 import { State } from './splat-state';
+import { Scene } from './scene';
+import { ElementType } from './element';
+import { BoxShape } from './box-shape';
+import { SphereShape } from './sphere-shape';
 
 // WDD: Define the structure for export options
 interface PlySequenceExportOptions {
@@ -12,6 +16,85 @@ interface PlySequenceExportOptions {
     // serializeSettings could be added here in the future if needed
     // serializeSettings: SerializeSettings;
 }
+
+type SelectorDescriptor =
+    | {
+        kind: 'box';
+        center: { x: number; y: number; z: number };
+        size: { x: number; y: number; z: number };
+    }
+    | {
+        kind: 'sphere';
+        center: { x: number; y: number; z: number };
+        radius: number;
+    };
+
+const getActiveSelector = (scene: Scene | null): SelectorDescriptor | null => {
+    if (!scene) {
+        return null;
+    }
+
+    const debugElements = scene.getElementsByType(ElementType.debug);
+    const box = debugElements.find((element): element is BoxShape => element instanceof BoxShape);
+    if (box) {
+        const pos = box.pivot.getPosition();
+        return {
+            kind: 'box',
+            center: { x: pos.x, y: pos.y, z: pos.z },
+            size: { x: box.lenX, y: box.lenY, z: box.lenZ }
+        };
+    }
+
+    const sphere = debugElements.find((element): element is SphereShape => element instanceof SphereShape);
+    if (sphere) {
+        const pos = sphere.pivot.getPosition();
+        return {
+            kind: 'sphere',
+            center: { x: pos.x, y: pos.y, z: pos.z },
+            radius: sphere.radius
+        };
+    }
+
+    return null;
+};
+
+const applySelectorMask = (scene: Scene, splat: Splat, state: Uint8Array, selector: SelectorDescriptor) => {
+    if (!scene || !state || !state.length || !selector) {
+        return;
+    }
+
+    const options = selector.kind === 'box'
+        ? {
+            box: {
+                x: selector.center.x,
+                y: selector.center.y,
+                z: selector.center.z,
+                lenx: selector.size.x,
+                leny: selector.size.y,
+                lenz: selector.size.z
+            }
+        }
+        : {
+            sphere: {
+                x: selector.center.x,
+                y: selector.center.y,
+                z: selector.center.z,
+                radius: selector.radius
+            }
+        };
+
+    const mask = scene.dataProcessor.intersect(options, splat);
+    const limit = Math.min(state.length, mask.length);
+
+    for (let idx = 0; idx < limit; idx++) {
+        if (mask[idx] !== 255) {
+            state[idx] |= State.deleted;
+        } else {
+            state[idx] &= ~State.deleted;
+        }
+    }
+};
+
 const registerPlySequenceEvents = (events: Events) => {
     let sequenceFiles: File[] = [];
     let sequenceSplat: Splat = null;
@@ -116,10 +199,17 @@ const registerPlySequenceEvents = (events: Events) => {
 
     // WDD: Add handler for the plysequence.export event
     events.function('plysequence.export', async (options: PlySequenceExportOptions) => {
-        if (!sequenceFiles || sequenceFiles.length === 0) {
+        if (!sequenceFiles || sequenceFiles.length === 0 || !sequenceSplat) {
             console.warn('No sequence frames to export.');
             return;
         }
+
+        const scene = sequenceSplat.scene ?? null;
+        if (!scene) {
+            console.warn('Sequence splat is not attached to a scene. Aborting export.');
+            return;
+        }
+        const activeSelector = getActiveSelector(scene);
     
         events.fire('progressStart', localize('export.export-sequence'));
  
@@ -155,30 +245,29 @@ const registerPlySequenceEvents = (events: Events) => {
                 // 1. 从当前场景的 splat (sequenceSplat) 获取完整的状态数组
                 const oldState = sequenceSplat.splatData.getProp('state') as Uint8Array;
                 const newState = splat.splatData.getProp('state') as Uint8Array;
-               
 
-                //console.log('state 000',  splat.splatData);
-
-                // 2. 将状态数组应用到新加载的 splat 数据上
-                if (oldState) {
-                    //  将旧状态复制到新 splat
-                    newState.set(oldState);
-
-                     
-                }
-
-                // 3. 将新加载的 splat 应用到当前场景的 splat
+                // 2. 将新加载的 splat 应用到当前场景的 splat
                 // 将新加载的 splat 移动到当前场景的 splat 的位置
-                splat.scene = sequenceSplat.scene; 
-                splat.move(refPos, refRot, refScale);
-                 
-      
+                splat.scene = scene;
+                splat.entity.setLocalPosition(refPos);
+                splat.entity.setLocalRotation(refRot);
+                splat.entity.setLocalScale(refScale);
+                splat.makeWorldBoundDirty();
 
-                // 3. 创建序列化设置，确保在保存时物理移除已删除的点
+                // 2. 创建序列化设置，确保在保存时物理移除已删除的点
                 const serializeSettings = {
                     removeInvalid: true
                 };
 
+                // 3. 将状态数组应用到新加载的 splat 数据上
+                if (activeSelector && scene) {
+                    applySelectorMask(scene, splat, newState, activeSelector);
+                } else if (oldState && oldState.length === newState.length) {
+                    //  将旧状态复制到新 splat
+                    newState.set(oldState);
+                }
+
+    
  
                 // Get a handle to the output file in the selected directory
                 const fileHandle = await options.dirHandle.getFileHandle(file.name, { create: true });
