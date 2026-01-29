@@ -42,7 +42,8 @@ outputHeader();
 const application = {
     input: 'src/index.ts',
     output: {
-        dir: 'dist',
+        // #WDD 2026-01-29 将输出目录从 dist 修改为 docs，以便于部署。
+        dir: 'docs',
         format: 'esm',
         sourcemap: true
     },
@@ -80,8 +81,8 @@ const application = {
             runtime: sass,
             processor: (css) => {
                 return postcss([autoprefixer])
-                .process(css, { from: undefined })
-                .then(result => result.css);
+                    .process(css, { from: undefined })
+                    .then(result => result.css);
             },
             fileName: 'index.css',
             includePaths: [`${PCUI_DIR}/dist`]
@@ -100,7 +101,8 @@ const application = {
 const serviceWorker = {
     input: 'src/sw.ts',
     output: {
-        dir: 'dist',
+        // #WDD 2026-01-29 将输出目录从 dist 修改为 docs
+        dir: 'docs',
         format: 'esm',
         sourcemap: true
     },
