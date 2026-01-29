@@ -20,10 +20,9 @@ const loadGsplat = (assets: AssetRegistry, assetSource: AssetSource) => {
         decompress: true,
         // disable morton re-ordering when loading animation frames
         //reorder: !(assetSource.animationFrame ?? false)
-        
-        //WDD : Always disable        
-        reorder : false
 
+        //WDD : Always disable        
+        reorder: false
     };
 
     const options = {
@@ -70,6 +69,8 @@ const loadGsplat = (assets: AssetRegistry, assetSource: AssetSource) => {
         });
 
         asset.on('error', (err: string) => {
+            // #WDD 2026-01-29 加载失败时从注册表中移除，防止内存泄漏。
+            assets.remove(asset);
             reject(err);
         });
 

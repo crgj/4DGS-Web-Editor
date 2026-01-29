@@ -166,6 +166,12 @@ const registerPlySequenceEvents = (events: Events) => {
         }], true) as Splat[];
 
 
+        // #WDD 2026-01-29 增加安全性检查，防止加载失败时后续代码崩溃。
+        if (!newSplat || !newSplat[0]) {
+            sequenceLoading = false;
+            return;
+        }
+
         console.log('Loaded frame', newSplat);
 
 
@@ -210,10 +216,10 @@ const registerPlySequenceEvents = (events: Events) => {
             return;
         }
         const activeSelector = getActiveSelector(scene);
-    
+
         events.fire('progressStart', localize('export.export-sequence'));
- 
-        try { 
+
+        try {
 
             const refPos = sequenceSplat.entity.getLocalPosition().clone();
             const refRot = sequenceSplat.entity.getLocalRotation().clone();
@@ -231,17 +237,27 @@ const registerPlySequenceEvents = (events: Events) => {
 
             for (let i = 0; i < sequenceFiles.length; i++) {
                 const file = sequenceFiles[i];
+
+                // #WDD 2026-01-29 预读文件到内存 ArrayBuffer，避免在覆盖导出时出现流中断错误(Stream finished before end of header)
+                // 同时也增加了对空文件的检查，防止引擎崩溃。
+                if (file.size === 0) {
+                    console.warn(`File ${file.name} is empty, skipping.`);
+                    continue;
+                }
+
+                const arrayBuffer = await file.arrayBuffer();
+
                 // WDD: Use the scene's assetLoader to load the splat data into a temporary object.
                 // This correctly loads the data without adding the splat to the main scene.
                 const splat = await events.invoke('scene.assetLoader').load({
                     filename: file.name,
-                    contents: file
-                }); 
- 
+                    contents: arrayBuffer
+                });
+
                 // WDD: 保存序列文件的时候 对照当前场景中splat的高斯点状态
                 // 如果高斯点的状态是被删除的 则不写入文件
 
-                
+
                 // 1. 从当前场景的 splat (sequenceSplat) 获取完整的状态数组
                 const oldState = sequenceSplat.splatData.getProp('state') as Uint8Array;
                 const newState = splat.splatData.getProp('state') as Uint8Array;
@@ -267,8 +283,8 @@ const registerPlySequenceEvents = (events: Events) => {
                     newState.set(oldState);
                 }
 
-    
- 
+
+
                 // Get a handle to the output file in the selected directory
                 const fileHandle = await options.dirHandle.getFileHandle(file.name, { create: true });
                 const stream = await fileHandle.createWritable();
@@ -281,6 +297,12 @@ const registerPlySequenceEvents = (events: Events) => {
                 } finally {
                     progressFunc(i);
                     await writer.close();
+
+                    // #WDD 2026-01-29 修复序列导出时内存溢出的问题。在每一帧导出完成后，显式销毁临时创建的 splat 对象及其关联素材。
+                    splat.destroy();
+
+                    // 给予浏览器一小段时间进行垃圾回收
+                    await new Promise(resolve => setTimeout(resolve, 0));
                 }
             }
 
